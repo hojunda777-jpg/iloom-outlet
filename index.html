@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>아울렛 재고 현황 | 일룸</title>
+<script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#f1f5f9;color:#1e293b;font-size:14px}
@@ -95,6 +96,7 @@ th:not(.sort-asc):not(.sort-desc) .sort-icon::after{content:'⇅'}
       <input type="text" id="anaSearch" placeholder="세트코드 또는 단품코드로 검색" oninput="filterAna()">
       <button onclick="clearAna()">초기화</button>
       <span id="anaCount" style="font-size:11px;color:#6b7280;margin-left:4px"></span>
+      <button onclick="exportAnaXlsx()" style="margin-left:auto;padding:6px 14px;background:#1d6f42;color:white;border:none;border-radius:6px;font-size:12px;font-weight:600;cursor:pointer;">⬇ 엑셀 다운로드</button>
     </div>
     <div class="card-body" style="padding:0 0 4px">
       <div class="table-wrap">
@@ -17147,6 +17149,36 @@ function filterAna() {
 function clearAna() {
   document.getElementById('anaSearch').value = '';
   filterAna();
+}
+
+function exportAnaXlsx() {
+  const today = new Date();
+  const ds = today.getFullYear() + String(today.getMonth()+1).padStart(2,'0') + String(today.getDate()).padStart(2,'0');
+  const header = ['순번','세트코드','색상','세트명','목표판매량','판매수량','잔여수량','잔여충족여부','판매가능수량','전일대비','제약단품','세트입고단가'];
+  const dataRows = [header];
+  document.querySelectorAll('#anaTable tbody tr.ana-row').forEach(tr => {
+    if (tr.style.display === 'none') return;
+    const cells = tr.querySelectorAll('td');
+    const row = [];
+    for (let i = 0; i < 12; i++) {
+      const dv = cells[i]?.dataset?.val;
+      const txt = (cells[i] ? cells[i].textContent.trim() : '').replace(/\s+/g, ' ');
+      if (dv !== undefined && dv !== '') {
+        const n = parseFloat(dv);
+        row.push(!isNaN(n) ? n : txt);
+      } else {
+        const n = parseFloat(txt.replace(/,/g, ''));
+        row.push(!isNaN(n) && txt !== '' ? n : txt);
+      }
+    }
+    dataRows.push(row);
+  });
+  if (dataRows.length <= 1) { alert('데이터가 없습니다.'); return; }
+  const ws = XLSX.utils.aoa_to_sheet(dataRows);
+  ws['!cols'] = header.map((h, i) => ({ wch: Math.max(h.length, i < 4 ? 14 : 10) + 2 }));
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, '판매가능수량');
+  XLSX.writeFile(wb, `아울렛_판매가능수량_${ds}.xlsx`);
 }
 
 const _anaSort = { col: -1, dir: 1 };
